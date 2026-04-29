@@ -1,2 +1,2 @@
 # auditresilience
-CCS submission
+This is artifact submission for CCS
