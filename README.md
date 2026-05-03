@@ -45,7 +45,21 @@ This software is organized as follows:
 
 ## Prerequisites and Installation
 
-See the file **INSTALL**.
+
+## Prerequisites and Installation
+
+1. Install BCC (scripts/install-bcc.sh)
+2. run make all inside the directory code.
+
+3. Evaluation Environment
+
+All experiments were conducted on Ubuntu 22.04 LTS with Linux kernel 6.5.
+
+Our implementation relies on eBPF via BCC. Since BCC behavior and eBPF
+capabilities vary across kernel versions, we recommend using the above
+kernel version (or a closely compatible one) to ensure reproducibility.
+
+## Usage
 
 ## Usage
 
