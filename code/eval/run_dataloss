@@ -1,0 +1,58 @@
+#!/bin/bash
+
+stty sane
+
+declare -a bms=("rdwr" "tar" "find" "pm")
+declare -a configs=("-r" "-c" "-c --fast" "-c --best" "-s" "-sc" "-sc --fast" "-sc --best")
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <outfile>"
+    exit
+fi
+
+outf=$1
+
+echo "bm,pipeline,config,syscalls,bytes_sent,bytes_lost,p" >> $outf
+
+stats() {
+    agoutfile=$1
+    diag_prefix="xxxx"
+    syscalls=$(grep -a ${diag_prefix}syscalls $agoutfile | awk '{print $2}' )
+    sent=$(grep -a ${diag_prefix}sent $agoutfile | awk '{print $2}' )
+    lost=$(grep -a ${diag_prefix}lost $agoutfile | awk '{print $2}' )
+    avgp=$(grep -a ${diag_prefix}avgp $agoutfile | awk '{print $2}' )
+    # avgw=$(grep -a ${diag_prefix}avgw $agoutfile | awk '{print $2}' )
+    echo "$syscalls,$sent,$lost,$avgp"
+    echo -n "$syscalls,$sent,$lost,$avgp" >> $outf
+    echo "" >> $outf
+}
+
+for bm in "${bms[@]}"
+do
+    echo "Benchmark: $bm"
+    for config in "${configs[@]}"
+    do
+        echo "Config: $config"
+        ./dl-run $config
+        sleep 10
+        cd eval
+        if [ $bm = "rdwr" ]; then
+            ./run_rdwr 12 10000000
+        elif [ $bm = "tar" ]; then
+            ./run_tar 12 12
+        elif [ $bm = "find" ]; then
+            ./run_find 12 24
+        elif [ $bm = "pm" ]; then
+            ./run_pm pm-config.sm 12 2
+        fi
+        cd ..
+        sleep 10
+        ./ered-stop
+        sleep 5
+        echo -n "$bm,$config,base," >> $outf
+        stats "base.out"
+        echo -n "$bm,$config,fo," >> $outf
+        stats "fo.out"
+        sleep 5
+    done
+done

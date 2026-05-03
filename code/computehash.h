@@ -1,0 +1,1 @@
+uint64_t compute_hash(const uint8_t *in, size_t inlen, const uint8_t *k, int algo); 

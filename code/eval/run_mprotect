@@ -1,0 +1,33 @@
+#!/bin/bash
+
+if (( $# != 2 )); then
+    echo "Usage: $0 <number_of_parallel_tasks> <loops_per_task> <mode>"
+    echo "  mode = ok   (valid mprotect on real mapping)"
+    echo "       = fail (fast-fail mprotect with invalid arguments)"
+    exit 1
+fi
+
+tasks=$1         # Number of parallel tasks (processes)
+loops=$2         # Number of mprotect() calls per task
+# mode=$3          # ok | fai
+mode="ok"
+cd mprotect || { echo "mprotect directory not found"; exit 1; }
+make all || { echo "build failed"; exit 1; }
+
+echo "Running $tasks parallel mprotect storm tasks, $loops loops each, mode=$mode"
+
+do_mprotect_storm() {
+    task_id=$1
+    loops=$2
+    mode=$3
+    echo "Task $task_id starting..."
+    ./bin/mprotectcode "$loops" "$mode"
+    echo "Task $task_id done."
+}
+
+time (
+    for (( i=0; i < tasks; i++ )); do
+        (do_mprotect_storm "$i" "$loops" "$mode") &
+    done
+    wait
+)

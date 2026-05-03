@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if (( $# != 2 )); then
+    echo "Usage: $0 <number_of_parallel_tasks> <loops_per_task>"
+    exit 1
+fi
+
+tasks=$1
+loops=$2
+# mode="fail"   # change to "ok" for valid close on /dev/null fd
+mode="ok"
+
+cd close || { echo "close directory not found"; exit 1; }
+make all || { echo "build failed"; exit 1; }
+
+echo "Running $tasks parallel close storm tasks, $loops loops each, mode=$mode"
+
+do_close_storm() {
+    task_id=$1
+    loops=$2
+    mode=$3
+    echo "Task $task_id starting..."
+    ./bin/closecode "$loops" "$mode"
+    echo "Task $task_id done."
+}
+
+time (
+    for (( i=0; i < tasks; i++ )); do
+        (do_close_storm "$i" "$loops" "$mode") &
+    done
+    wait
+)

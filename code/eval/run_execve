@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# run_execve: spawn multiple execve_storm chains in parallel.
+#
+# Usage:
+#   ./run_execve <number_of_parallel_tasks> <loops_per_chain>
+#
+# Example:
+#   ./run_execve 8 5000
+#
+# This will:
+#   - build execve/execve_storm
+#   - start 8 parallel processes
+#   - each process will perform ~ (loops_per_chain - 1) VALID execve()
+#     calls on /proc/self/exe, morphing itself repeatedly.
+#
+# From your audit/eBPF POV:
+#   - Each chain generates a stream of successful execves.
+#   - No invalid paths, no fast failure: real exec path is stressed.
+
+if (( $# != 2 )); then
+    echo "Usage: $0 <number_of_parallel_tasks> <loops_per_chain>"
+    exit 1
+fi
+
+tasks=$1
+loops=$2
+
+cd execve || { echo "execve directory not found"; exit 1; }
+make all
+
+helper() {
+    # arg1 = task index (unused, but keeps symmetry with other storms)
+    # arg2 = loops per chain
+    ./execve_storm "$2" >/dev/null 2>&1
+}
+
+time (
+    for (( i=0; i<tasks; i++ )); do
+        (helper "$i" "$loops") &
+    done
+    wait
+)

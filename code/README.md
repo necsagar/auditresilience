@@ -1,0 +1,153 @@
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li>
+      <a href="#about-the-software">About the software</a>
+    </li>
+    <li>
+      <a href="#prerequisites-and-installation">Prerequisites and Installation</a>
+    </li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#behind-the-scene">Behind the scene</a></li>
+  </ol>
+</details>
+
+
+## About this software
+
+This repository contains a Linux eBPF-based system-call capture and parsing
+toolchain, together with test and evaluation assets.
+
+System call logs are the last line of defense against sophisticated cyber
+attacks, providing a detailed and causally complete record for post-attack
+investigation. This use requires logging to be enabled at all times, but
+unfortunately, existing systems for system call logging do not seem to have been
+designed or engineered for such use. Consequently, they are prone to losing a
+large fraction of events during peak loads, and moreover, introduce significant
+performance and storage overheads. The software here is designed to mitigate
+these drawbacks and enable "always on" audit logging. Its goals are to:
+
+  * enable systems to support peak workloads without a significant slowdown,
+  * avoid losing system calls,
+  * reduce data volume using **event reduction** techniques, and 
+  * minimize the latency for logging.
+
+This software is organized as follows:
+
+  * The top-level directory contains most of the source code, with the
+     remaining code appearing in the lib/ directory.
+  * The main Makefile builds the capture and parser components in this
+    directory.
+
+  * The directory eval/ contains benchmarks, scripts and tools for evaluation.
+
+
+## Prerequisites and Installation
+
+See the file **INSTALL**.
+
+## Usage
+
+There are two top-level programs: `ecapd` and `eaudit`. `ecapd` is for
+logging system calls, while `eaudit` parses and prints collected logs in a
+human readable format. Being based on `ebpf`, `ecapd` requires root
+privilege to run. Both programs support a **-h** option that prints a help
+message documenting the command-line options.
+
+## Behind the scene
+
+`ecapd` is a wrapper shell script that invokes `eauditd.py`, which loads and
+manages the `ebpf` code in `eauditk.c`. `eauditd.py` also loads the code
+from `eauditd.C` and sets it up to read the captured data (from `ebpf`'s ring
+buffer) and write it into the capture file.
+
+`eaudit.C` and `eParser.C` contain the code that compiles into `eaudit`,
+the program that parses capture files and produces human-readable output.
+`eauditk.c` is compiled on the fly and loaded into the kernel by
+`eauditd.py`.
+
+
+## Replicating the charts in the paper
+--------------------------------------------------------------------------------
+1. Figure 1 (Data Loss for eAudit)
+--------------------------------------------------------------------------------
+1.1 Start the logger
+$ ./ecapd -m diag: -C -s -v2 -b 1.6 -r 64 -w 8 -- -C /tmp/dataloss.log
+
+1.2 Run benchmarks tools and attack tools
+$ run_tar 12 17 
+$ run_chmod 12 6666667
+
+1.3 Check the data loss information in the ./ecapd result when you terminate the logger.
+
+Example output:
+
+17.26M Calls, 922.52MiB (122M lost), Size: call=53 record=110
+
+--------------------------------------------------------------------------------
+2. Figure 3-8 (Inline data reduction)
+--------------------------------------------------------------------------------
+- This is the first layer of defense, where the data volume are significantly 
+reduced. As the data are gathered over a period of days, you can just check
+this using data reduction helpers for benchmarks. You can gather data for days
+and check the results as well.
+
+1.1 Start logger without reduction enabled
+$ ./ecapd -m diag: -C -s -v2 -b 1.6 -r 64 -w 8 -- -C /tmp/dataloss.log
+
+1.2 Start the logger with reduction enabled
+
+$ ./ecapd -m diag: -C -s -v2 -b 1.6 -r 64 -w 8 --fo --dlw -- -C /tmp/dataloss.log
+
+1.2 Run benchmarks tools and attack tools
+$ run_tar 12 17 
+
+1.3 Check the system calls logged by both the processes with and without reduction.
+Example output (with reduction):
+9.57M Calls, 509.54MiB (0 lost), Size: call=53 record=111
+
+4541628 ringbuf calls with wakeup flag, 21756 without, 17069 actual wakes
+*** 910993 read/writes, 336159 recorded ***
+*** 953715 opens, 161466 recorded ***
+*** Too many fileinfo (754) unfound: ***
+
+--------------------------------------------------------------------------------
+3. Figure 9 (Invalid systemcall flood defense)
+--------------------------------------------------------------------------------
+
+1.1 Start logger with invalid system call attack protection
+$ ./ecapd -m diag: -C -s -v2 -b 1.6 -r 64 -w 8 --fo --dlw -- -C /tmp/dataloss.log
+
+1.2 Run benchmarks tools and attack tools
+$ run_rename 384 208334
+$ run_clone3 384 208334
+- you can run other scripts as well, check the run_X for other scripts
+
+1.3 Check the report generated by ecpad after you stop it. 
+9.57M Calls, 509.54MiB (0 lost), Size: call=53 record=111
+
+--------------------------------------------------------------------------------
+3. Figure 11-12 (Adaptive throttling)
+--------------------------------------------------------------------------------
+## These charts are generated by computing the syscall rate and quota
+
+1.1 Start the logger with adaptive throttling enabled
+
+./ecapd -m diag: -C -s -v2 -b 1.6 -r 64 -w 8 -fo --dlw -Pcg300000 -- -C /tmp/dataloss.log
+
+- Run benchmarks tools and attack tools
+$ run_tar 12 17 
+$ run_chmod 12 6666667
+
+Check the data loss information in the ./ecapd result when you terminate the logger.
+
+Example output:
+
+17.26M Calls, 922.52MiB (0 lost), Size: call=53 record=110
+
+
+#Notes:
+Please check the scripts at eval/ directory and -h options for each script
+and ./ecapd -h for all options for these layers of defense.
+

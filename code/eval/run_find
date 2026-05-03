@@ -1,0 +1,22 @@
+#!/bin/bash
+
+if (( $# != 2 && $# != 3 )); then
+    echo "Usage: $0 <number_of_parallel_tasks> <loop_count> [<directory>]"
+    exit
+fi
+
+n=$1
+m=$2
+dir=${3:-/usr}
+
+loopDirs=$dir
+for (( i=1; i<$m; ++i)); do
+  loopDirs=$loopDirs' '$dir
+done
+
+time (
+    for (( i=0; i < n; i++ )); do
+        find $loopDirs -type f -print |& wc -l > /dev/null
+    done
+    wait
+)

@@ -1,0 +1,29 @@
+#!/bin/bash
+
+if (( $# != 2 )); then
+    echo "Usage: $0 <number_of_parallel_tasks> <loops_per_task>"
+    exit 1
+fi
+
+tasks=$1         # Number of parallel tasks (processes)
+loops=$2         # Number of kill() calls per task
+
+cd kill || { echo "kill directory not found"; exit 1; }
+make all || { echo "build failed"; exit 1; }
+
+echo "Running $tasks parallel kill storm tasks, $loops kills each"
+
+do_kill_storm() {
+    task_id=$1
+    loops=$2
+    echo "Task $task_id starting..."
+    ./bin/killcode_inv "$loops"
+    echo "Task $task_id done."
+}
+
+time (
+    for (( i=0; i < tasks; i++ )); do
+        (do_kill_storm "$i" "$loops") &
+    done
+    wait
+)

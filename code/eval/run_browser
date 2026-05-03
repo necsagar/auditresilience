@@ -1,0 +1,68 @@
+#!/bin/bash
+
+if (( $# < 2 )); then
+    echo "Usage: $0 <number_of_browser_windows> <number_of_urls> "
+    echo "                     [<url_batch_size> [<url_sample_size>]]"
+    exit
+fi
+
+num_windows=${1:-1}
+num_urls=$2
+batch_size=${3:-10}
+sample_size=$4
+num_batches=$((((num_urls-1)/batch_size)+1))
+
+if [[ $sample_size -gt 0 ]] ; then
+    cd browser && mkdir tmp
+    # Otherwise it is sampled outside the benchmark to facilitate identical runs.
+    shuf -n $sample_size urls.csv > tmp/sampled_urls.csv
+    python3 sample-urls.py tmp/sampled_urls.csv tmp/bm_urls $num_urls
+    cd tmp
+    split -l $batch_size -a 1 -d bm_urls url_batch_
+    cd ../..
+    pwd
+elif [[ ! -d "browser/tmp" ]] || [[ $(find browser/tmp -type f -name "url_batch_*" | wc -l) -ne $num_batches ]] ; then
+    echo "No url batches found. Sample urls or pass additional arguments."
+    echo "Usage: $0 <number_of_browser_windows> <number_of_urls> "
+    echo "                     [<url_batch_size> [<url_sample_size>]]"
+    exit
+fi
+
+time (
+    firefox "https://google.com/" &> /dev/null &
+
+    firefox_window_id=""
+
+    while [ -z "$firefox_window_id" ]; do
+        firefox_window_id=$(xdotool search --name "Mozilla Firefox" | head -n 1)
+        sleep 1 
+    done
+
+    echo "Firefox window ID: $firefox_window_id"
+
+    for (( i=0; i < $num_batches; i++ )); do
+        url_batch="browser/tmp/url_batch_$i"
+        batch_size=$( wc -l "$url_batch" | awk '{print $1}' )
+        while read -r url; do
+            echo "$url"
+            firefox -new-tab "$url" &> /dev/null &
+            sleep 2
+        done < "$url_batch"
+
+        sleep 5
+
+        for (( j=0; j < $batch_size; j++ )); do
+            xdotool key --window "$firefox_window_id" "ctrl+w" &> /dev/null
+            sleep 2
+        done
+    done
+)
+
+sleep 5
+
+if [[ $sample_size -gt 0 ]] ; then
+    pwd
+    rm -r browser/tmp
+fi
+
+pkill -o firefox &> /dev/null

@@ -1,0 +1,92 @@
+#!/bin/bash
+
+if (( $# < 1 || $# > 4 )); then
+    echo "Usage: $0 <datafilename> [per_cpu_buffer [wakeup_interval [cgroup_quota]]]" && exit 1
+fi
+
+outfile="$1"
+per_cpu_buffer=$2
+wakeup_interval=$3
+cgroup_quota=${4:-80000}
+
+if [[ "${outfile##*.}" != "csv" ]]; then
+    echo "data file name should have a csv suffix" && exit 1
+fi
+
+# ---------- Keep sudo alive for the entire run ----------                       
+if [[ $EUID -ne 0 ]]; then                                                       
+  echo -n  "Requesting sudo once and keeping it alive for the duration..."            
+  sudo -v || die "sudo authentication failed."                                   
+  # Refresh sudo timestamp every 60s in the background, until this script exits. 
+  # If the timestamp ever expires (e.g., sudoers changed), sudo -n will fail.       
+  keep_sudo_fresh() { while sleep 60; do sudo -n true || exit; done; }           
+  keep_sudo_fresh & SUDO_KEEPALIVE_PID=$!                                        
+  trap '[[ -n "${SUDO_KEEPALIVE_PID:-}" ]] && kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true' EXIT
+fi 
+
+# if [[ -f $outfile ]]; then
+#     echo "refusing to overwrite an existing data file" && exit 1
+# fi
+
+#benigh workloads
+# ./bmrun $outfile run_tar_new 800000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+
+# ./bmrun $outfile run_find 288 $cgroup_quota $per_cpu_buffer $wakeup_interval
+#./bmrun $outfile run_tar 200 $cgroup_quota $per_cpu_buffer $wakeup_interval
+#  ./bmrun $outfile "run_pm pm-config.sm" 200 $cgroup_quota $per_cpu_buffer $wakeup_interval
+#  ./bmrun $outfile run_httperf 8000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+
+
+
+# ./bmrun $outfile run_shbm 200000 $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_rdwr 100000000 $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_kernbuild 1 $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_browser 1000 $per_cpu_buffer $wakeup_interval
+
+
+#######################Dos Attacks ##############
+
+# Valid syscalls
+# ./bmrun $outfile run_sysstorm_single 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+
+ #./bmrun $outfile run_kill 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+#./bmrun $outfile run_mprotect_valid 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_setuid 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+
+
+#extra valid
+# ./bmrun $outfile run_rename 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_link 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_chdir 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_close 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_open 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_mkdir 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+./bmrun $outfile run_chmod 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_mmap 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+
+# ./bmrun $outfile run_clone  8000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_execve 8000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+#------------------------------------------------------------------------------#
+# Invalid syscalls
+
+#  ./bmrun $outfile run_chmod 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+#  ./bmrun $outfile run_clone3 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+  # ./bmrun $outfile run_execveat 800000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+ #./bmrun $outfile run_rename 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+ ./bmrun $outfile run_mprotect 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_kill_inv 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+
+# Extra invalids
+# ./bmrun $outfile run_link 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_chdir 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_close 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_open 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+# ./bmrun $outfile run_mkdir 80000000 $cgroup_quota $per_cpu_buffer $wakeup_interval
+
+
+
+
+
+
+# Cycles
+# ./bmrun $outfile run_cycle 8000000000 $cgroup_quota $per_cpu_buffer $wakeup_interval

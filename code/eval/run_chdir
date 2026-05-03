@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if (( $# != 2 )); then
+    echo "Usage: $0 <number_of_parallel_tasks> <loops_per_task>"
+    exit 1
+fi
+
+tasks=$1
+loops=$2
+# mode="fail"   # change to "ok" for valid chdir
+mode="ok"
+
+cd chdir || { echo "chdir directory not found"; exit 1; }
+make all || { echo "build failed"; exit 1; }
+
+echo "Running $tasks parallel chdir storm tasks, $loops loops each, mode=$mode"
+
+do_chdir_storm() {
+    task_id=$1
+    loops=$2
+    mode=$3
+    echo "Task $task_id starting..."
+    ./bin/chdircode "$loops" "$mode"
+    echo "Task $task_id done."
+}
+
+time (
+    for (( i=0; i < tasks; i++ )); do
+        (do_chdir_storm "$i" "$loops" "$mode") &
+    done
+    wait
+)

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+if (( $# != 2 )); then
+    echo "Usage: $0 <number_of_parallel_tasks> <loops_per_task> <mode>"
+    echo "  mode = ok   (valid rename in a real directory)"
+    echo "       = fail (fast-fail renameat2 with invalid dirfd)"
+    exit 1
+fi
+
+tasks=$1         # Number of parallel tasks (processes)
+loops=$2         # Number of rename() calls per task
+# mode="fail"          # ok | fail
+mode="fail"
+
+cd rename || { echo "rename directory not found"; exit 1; }
+make all || { echo "build failed"; exit 1; }
+
+echo "Running $tasks parallel rename storm tasks, $loops loops each, mode=$mode"
+
+do_rename_storm() {
+    task_id=$1
+    loops=$2
+    #mode=$3
+    echo "Task $task_id starting..."
+    ./bin/renamecode "$loops" "$mode"
+    echo "Task $task_id done."
+}
+
+time (
+    for (( i=0; i < tasks; i++ )); do
+        (do_rename_storm "$i" "$loops" "$mode") &
+    done
+    wait
+)
